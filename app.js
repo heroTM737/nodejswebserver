@@ -25,7 +25,8 @@ app.get('/', function(rep, res) {
 app.post('/login', urlencodedParser, function(req, res) {
     var username = req.body.username;
     var password = req.body.password;
-    res.send("Successful - " + username);
+    
+    res.send("Successful");
 });
 
 //set up controller

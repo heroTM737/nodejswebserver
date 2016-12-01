@@ -4,7 +4,7 @@ var bodyParser = require('body-parser');
 var gameController = require('./controller/game/gameController');
 
 var app = express();
-var port = process.env.PORT || 3000;
+var port = process.env.PORT || 7000;
 var urlencodedParser = bodyParser.urlencoded({ extended: false });
 var jsonParser = bodyParser.json();
 

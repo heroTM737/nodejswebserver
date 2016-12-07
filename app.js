@@ -1,14 +1,17 @@
 var fs = require('fs');
 var express = require('express');
+var app = express();
+var http = require('http').Server(app);
+var io = require('socket.io')(http);
 var bodyParser = require('body-parser');
 var db = require('./database/db');
 var session = require('express-session');
-var gameController = require('./controller/game/gameController');
+var gameController = require('./controller/game');
+var appController = require('./controller/app');
 var constants = require('./constants');
 
 var test = require('./test/mongodb');
 
-var app = express();
 var port = process.env.PORT || 7000;
 var urlencodedParser = bodyParser.urlencoded({ extended: false });
 var jsonParser = bodyParser.json();
@@ -81,8 +84,9 @@ app.get('/test', urlencodedParser, function(req, res) {
 
 //set up controller
 gameController(app);
+appController(app, io, __dirname);
 
 //start server
-app.listen(port, function () {
+http.listen(port, function () {
   console.log('Server ready at port ' + port);
 });

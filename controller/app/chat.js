@@ -20,14 +20,6 @@ module.exports = function(app, io, __rootdirname) {
             io.emit('chat message', socket.id + " disconnected");
         });
 
-        socket.on('chat message', function(data) {
-            console.log("recieved = " + data.message);
-            io.emit('chat message', {
-                username: data.username,
-                message: data.message
-            });
-        });
-
         socket.on('login', function(data) {
             var username = data.username;
             var password = data.password;
@@ -38,5 +30,26 @@ module.exports = function(app, io, __rootdirname) {
                 socket.emit("login", status);
             });
         });
+
+        socket.on('chat message', function(data) {
+            console.log("recieved = " + data.message);
+            io.emit('chat message', {
+                username: data.username,
+                message: data.message
+            });
+        });
+
+        socket.on('match turn', function(data) {
+            console.log("match turn x="+data.x);
+            io.emit('match turn', {
+                x: data.x,
+                y: data.y
+            });
+
+            io.emit('chat message', {
+                username: data.username,
+                message: "x=" + data.x + " y=" + data.y
+            });
+        })
     });
 };

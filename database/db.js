@@ -1,37 +1,10 @@
-var mongodb = require('mongodb');
-var constants = require('../constants');
+var mongodb = require('./mongodb');
+var mysql = require('./mysql');
 
-var uri = 'mongodb://tientm:tientm@ds119618.mlab.com:19618/tientmmongo';
+var dbInstance = mysql;
 
 function verifyUser(username, password, callback) {
-    callback(constants.status.Successful);
-
-    // mongodb.MongoClient.connect(uri, function(err, db) {
-    //     if (err) throw err;
-
-    //     var user = db.collection('user');
-
-    //     console.log("finding username = " + username);
-    //     console.log("finding password = " + password);
-
-    //     var query = {
-    //         username: username,
-    //         password: password
-    //     }
-        
-    //     user.findOne(query, {}, function (err, doc) {
-    //         if (err) throw err;
-            
-    //         console.log(doc);
-    //         if (doc) {
-    //             callback(constants.status.Successful);
-    //         } else {
-    //             callback(constants.status.Failed);
-    //         }
-
-    //         db.close();
-    //     });
-    // });
+    dbInstance.verifyUser(username, password, callback);
 }
 
 module.exports = {

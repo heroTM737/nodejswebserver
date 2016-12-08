@@ -1,4 +1,6 @@
 var fs = require('fs');
+var db = require('../../database/db');
+var constants = require('../../constants');
 
 module.exports = function(app, io, __rootdirname) {
     app.get('/app/chat', function(rep, res) {
@@ -19,15 +21,22 @@ module.exports = function(app, io, __rootdirname) {
         });
 
         socket.on('chat message', function(data) {
-            var username = data.username;
-            var password = data.password;
-            io.emit('chat message', username + " - " + password);
+            console.log("recieved = " + data.message);
+            io.emit('chat message', {
+                username: data.username,
+                message: data.message
+            });
         });
 
         socket.on('login', function(data) {
             var username = data.username;
             var password = data.password;
-            io.emit('chat message', username + " - " + password);
+
+            console.log(username + " is logging in using socket");
+            db.verifyUser(username, password, function(status) {
+                console.log(username + " status = " + status);
+                socket.emit("login", status);
+            });
         });
     });
 };

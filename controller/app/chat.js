@@ -3,6 +3,7 @@ var db = require('../../database/db');
 var constants = require('../../constants');
 
 var connected_user = {};
+var connected_socket = {};
 var match = {};
 
 module.exports = function(app, io, __rootdirname) {
@@ -15,12 +16,31 @@ module.exports = function(app, io, __rootdirname) {
         });
     });
 
+    var updateOnlineUsers = function() {
+        var users = [];
+        for (var key in connected_user) {
+            if (connected_user[key]) {
+                users.push(key + " --- " + connected_user[key]);
+            }
+        }
+
+        io.emit("find match", {
+            users: users
+        });
+    }
+
     io.on('connection', function(socket) {
         console.log('a user connected');
 
         socket.on('disconnect', function() {
-            console.log('user disconnected');
-            io.emit('chat message', socket.id + " disconnected");
+            if (connected_socket[socket.id]) {
+                var username = connected_socket[socket.id];
+                connected_socket[socket.id] = null;
+                connected_user[username] = null;
+
+                console.log(username + ' disconnected');
+                updateOnlineUsers();
+            }
         });
 
         socket.on('login', function(data) {
@@ -40,7 +60,9 @@ module.exports = function(app, io, __rootdirname) {
                         }
                     } else {
                         connected_user[username] = socket.id;
+                        connected_socket[socket.id] = username;
                         socket.emit("login", status);
+                        updateOnlineUsers();
                     }
                 } else {
                     socket.emit("login", status);
@@ -49,15 +71,17 @@ module.exports = function(app, io, __rootdirname) {
             });
         });
 
-        socket.on('find match', function(data) {
-            var users = [];
-            for (var key in connected_user) {
-                users.push(key + " --- " + connected_user[key]);
-            }
+        socket.on('logout', function(data) {
+            var username = connected_socket[socket.id];
+            connected_user[username] = null;
+            connected_socket[socket.id] = null;
+            socket.emit("logout", constants.status.Successful);
+            console.log(username + " logged out");
+            updateOnlineUsers();
+        });
 
-            socket.emit("find match", {
-                users: users
-            });
+        socket.on('find match', function(data) {
+            updateOnlineUsers();
         });
 
         socket.on('request match', function(data) {
@@ -84,6 +108,8 @@ module.exports = function(app, io, __rootdirname) {
 
                 io.sockets.connected[connected_user[data.player1]].join(data.match_id);
                 io.sockets.connected[connected_user[data.player2]].join(data.match_id);
+
+                io.to(data.match_id).emit("accept match");
             }
         });
 
@@ -96,15 +122,17 @@ module.exports = function(app, io, __rootdirname) {
         });
 
         socket.on('match turn', function(data) {
-            console.log("match turn x=" + data.x + " y=" + data.y);
-            io.to(data.match_id).emit('match turn', {
-                x: data.x,
-                y: data.y
-            });
+            socket_session = connected_socket[socket.id];
+            var match_id = socket_session.match_id;
+            var username = socket_session.username;
+            var mark = match[match_id].player1 == username ? "x" : "o";
 
-            io.to(data.match_id).emit('chat message', {
-                username: data.username,
-                message: "x=" + data.x + " y=" + data.y
+            console.log(username + " turn x=" + data.x + " y=" + data.y);
+
+            io.to(match_id).emit('match turn', {
+                x: data.x,
+                y: data.y,
+                mark: mark
             });
         })
     });

@@ -2,8 +2,8 @@ var fs = require('fs');
 var db = require('../../database/db');
 var constants = require('../../constants');
 
-var connected_user = {};
 var connected_socket = {};
+var connected_user = {};
 var match = {};
 
 module.exports = function(app, io, __rootdirname) {
@@ -20,7 +20,7 @@ module.exports = function(app, io, __rootdirname) {
         var users = [];
         for (var key in connected_user) {
             if (connected_user[key]) {
-                users.push(key + " --- " + connected_user[key]);
+                users.push(key);
             }
         }
 
@@ -29,12 +29,17 @@ module.exports = function(app, io, __rootdirname) {
         });
     }
 
+    var getNewMatchID = function() {
+        var currentdate = new Date();
+        return currentdate.getTime() + "_" + Math.floor(Math.random() * 10000);
+    }
+
     io.on('connection', function(socket) {
         console.log('a user connected');
 
         socket.on('disconnect', function() {
             if (connected_socket[socket.id]) {
-                var username = connected_socket[socket.id];
+                var username = connected_socket[socket.id].username;
                 connected_socket[socket.id] = null;
                 connected_user[username] = null;
 
@@ -49,21 +54,18 @@ module.exports = function(app, io, __rootdirname) {
 
             console.log(username + " is logging in using socket");
             db.verifyUser(username, password, function(status) {
-                console.log(username + " status = " + status);
+                console.log(username + " log in status = " + status);
                 if (status == constants.status.Successful) {
-                    console.log(username + " socket = " + connected_user[username]);
-                    if (connected_user[username]) {
-                        if (connected_user[username] == socket.id) {
-                            socket.emit("login", constants.status.Successful);
-                        } else {
-                            socket.emit("login", constants.status.Failed);
+                    connected_user[username] = socket.id;
+                    connected_socket[socket.id] = {
+                        username: username,
+                        socket: {
+                            id: socket.id
                         }
-                    } else {
-                        connected_user[username] = socket.id;
-                        connected_socket[socket.id] = username;
-                        socket.emit("login", status);
-                        updateOnlineUsers();
-                    }
+                    };
+                    console.log(username + " socket = " + connected_user[username]);
+                    socket.emit("login", status);
+                    updateOnlineUsers();
                 } else {
                     socket.emit("login", status);
                 }
@@ -85,32 +87,40 @@ module.exports = function(app, io, __rootdirname) {
         });
 
         socket.on('request match', function(data) {
-            if (connected_user[data.username] == socket.id) {
-                var currentdate = new Date();
-                var match_id = currentdate.getTime() + "_" + Math.floor(Math.random() * 10000);
-                match[match_id] = {
-                    player1: data.username,
-                    player2: data.target
-                }
-
-                console.log("request match p1=" + data.username + " p2=" + data.target);
-
-                io.to(connected_user[data.target]).emit('request match', {
-                    player1: data.username,
-                    match_id: match_id
-                });
+            var username = connected_socket[socket.id].username;
+            var target = data.target;
+            
+            var match_id = getNewMatchID();
+            while (match[match_id]) {
+                match_id = getNewMatchID();
             }
+            match[match_id] = {
+                player1: username,
+                player2: target,
+                socket1: socket.id,
+                socket2: connected_user[target]
+            }
+
+            console.log("requesting match p1=" + username + " p2=" + target);
+
+            io.to(connected_user[target]).emit('request match', {
+                source: username,
+                match_id: match_id
+            });
         });
 
         socket.on('accept match', function(data) {
-            if (connected_user[data.username] == socket.id) {
-                console.log("accept match p1=" + data.player1 + " p2=" + data.player2);
+            var match_id = data.match_id;
+            var player1 = match[match_id].player1;
+            var player2 = match[match_id].player2;
+            console.log("accept match p1=" + player1 + " p2=" + player2);
 
-                io.sockets.connected[connected_user[data.player1]].join(data.match_id);
-                io.sockets.connected[connected_user[data.player2]].join(data.match_id);
+            var socket1 = match[match_id].socket1;
+            var socket2 = match[match_id].socket2;
+            io.sockets.connected[socket1].join(match_id);
+            io.sockets.connected[socket2].join(match_id);
 
-                io.to(data.match_id).emit("accept match");
-            }
+            io.to(match_id).emit("accept match",{match_id: match_id});
         });
 
         socket.on('chat message', function(data) {
@@ -122,17 +132,20 @@ module.exports = function(app, io, __rootdirname) {
         });
 
         socket.on('match turn', function(data) {
-            socket_session = connected_socket[socket.id];
-            var match_id = socket_session.match_id;
-            var username = socket_session.username;
-            var mark = match[match_id].player1 == username ? "x" : "o";
+            var match_id = data.match_id;
+            var username = connected_socket[socket.id].username;
 
-            console.log(username + " turn x=" + data.x + " y=" + data.y);
+            var icon = "x";
+            if (match[match_id].socket1 == socket.id) {
+                icon = "o";
+            }
+
+            console.log(username + " turn x=" + data.x + " y=" + data.y + " icon=" + icon);
 
             io.to(match_id).emit('match turn', {
                 x: data.x,
                 y: data.y,
-                mark: mark
+                icon: icon
             });
         })
     });

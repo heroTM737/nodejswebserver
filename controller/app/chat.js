@@ -121,6 +121,8 @@ module.exports = function(app, io, __rootdirname) {
             io.sockets.connected[socket2].join(match_id);
 
             io.to(match_id).emit("accept match",{match_id: match_id});
+            io.to(socket1).emit("turn free", {});
+            io.to(socket2).emit("turn locked", {});
         });
 
         socket.on('chat message', function(data) {
@@ -147,6 +149,14 @@ module.exports = function(app, io, __rootdirname) {
                 y: data.y,
                 icon: icon
             });
+
+            if (socket.id == match[match_id].socket1) {
+                io.to(match[match_id].socket1).emit("turn locked", {});
+                io.to(match[match_id].socket2).emit("turn free", {});
+            } else {
+                io.to(match[match_id].socket1).emit("turn free", {});
+                io.to(match[match_id].socket2).emit("turn locked", {});
+            }
         })
     });
 };
